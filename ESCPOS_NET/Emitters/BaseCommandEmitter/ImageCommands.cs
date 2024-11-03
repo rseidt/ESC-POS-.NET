@@ -1,6 +1,6 @@
 using ESCPOS_NET.Emitters.BaseCommandValues;
+using ESCPOS_NET.Extensions;
 using ESCPOS_NET.Utilities;
-using SixLabors.ImageSharp;
 using SkiaSharp;
 
 namespace ESCPOS_NET.Emitters

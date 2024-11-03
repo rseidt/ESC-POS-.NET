@@ -1,7 +1,7 @@
 ﻿using SkiaSharp;
 using System;
 
-namespace SixLabors.ImageSharp
+namespace ESCPOS_NET.Extensions
 {
     public static class SkiaSharpExtensions
     {
@@ -30,10 +30,12 @@ namespace SixLabors.ImageSharp
         /// dither based on the Bayer 16x16 matrix. The resulting buffer returned is a bi-tonal image
         /// buffer with the same width and height of the original image.
         /// </summary>
-        private static unsafe byte[] BitonalFromBitmap(SKBitmap bitmap, bool dither = false)
+        private static unsafe byte[] BitonalFromBitmap(SKBitmap bitmap, bool dither = false, bool addSendCommands = false)
         {
             // compute stride, allocate workspace
             var stride = (bitmap.Width + 7) / 8;
+            if (addSendCommands)
+                stride += 3;
             var buffer = new byte[stride * bitmap.Height];
 
             // get pointer to image pixels
@@ -43,6 +45,12 @@ namespace SixLabors.ImageSharp
             for (var y = 0; y < bitmap.Height; y++)
             {
                 var dst = y * stride;
+                if (addSendCommands)
+                {
+                    buffer[dst++] = 0x62;
+                    buffer[dst++] = (byte)(stride-3);
+                    buffer[dst++] = 0;
+                }
                 byte mask = 0x80;
                 byte b = 0;
 
@@ -83,30 +91,36 @@ namespace SixLabors.ImageSharp
 
 
 
-        public static byte[] ToSingleBitPixelByteArray(this SKBitmap image, bool rasterFormat = true, int? maxWidth = null, int? maxHeight = null, float threshold = 0.5F)
+        public static byte[] ToSingleBitPixelByteArray(this SKBitmap image, bool addSendCommands = false, int? maxWidth = null, int? maxHeight = null, float threshold = 0.5F)
         {
             if (maxWidth.HasValue || maxHeight.HasValue)
             {
-                decimal ratio = (decimal)image.Width / (decimal)image.Height;
-                var newWidth = image.Width;
-                var newHeight = image.Height;
-                if (maxWidth.HasValue && maxWidth < newWidth)
-                {
-                    newWidth = maxWidth.Value;
-                    newHeight = Convert.ToInt32((decimal)newWidth / ratio);
-                }
-                if (maxHeight.HasValue && maxHeight < newHeight)
-                {
-                    newHeight = maxHeight.Value;
-                    newWidth = Convert.ToInt32((decimal)newHeight * ratio);
-                }
-                if (newWidth != image.Width || newHeight != image.Height)
-                {
-                    image = image.Resize(new SKImageInfo(newWidth, newHeight), SKFilterQuality.High);
-                }
+                image = ResizeWithRatio(image, maxWidth, maxHeight);
             }
-            var bytes = BitonalFromBitmap(image,true);
+            var bytes = BitonalFromBitmap(image,true, addSendCommands);
             return bytes;
+        }
+
+        public static SKBitmap ResizeWithRatio(this SKBitmap image, int? maxWidth, int? maxHeight)
+        {
+            decimal ratio = (decimal)image.Width / (decimal)image.Height;
+            var newWidth = image.Width;
+            var newHeight = image.Height;
+            if (maxWidth.HasValue && maxWidth < newWidth)
+            {
+                newWidth = maxWidth.Value;
+                newHeight = Convert.ToInt32((decimal)newWidth / ratio);
+            }
+            if (maxHeight.HasValue && maxHeight < newHeight)
+            {
+                newHeight = maxHeight.Value;
+                newWidth = Convert.ToInt32((decimal)newHeight * ratio);
+            }
+            if (newWidth != image.Width || newHeight != image.Height)
+            {
+                image = image.Resize(new SKImageInfo(newWidth, newHeight), SKFilterQuality.High);
+            }
+            return image;
         }
     }
 }
